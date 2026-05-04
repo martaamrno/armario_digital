@@ -1,0 +1,43 @@
+# Entorno virtual
+venv/
+.venv/
+env/
+armario-api/venv/
+
+# Variables de entorno (credenciales)
+.env
+*.env
+
+# Base de datos local
+*.db
+*.sqlite
+*.sqlite3
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs
+*.log
+server.log
+server2.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos temporales de pruebas
+armario-api/tests/shopping.jpg
+armario-api/test_shirt.jpg
