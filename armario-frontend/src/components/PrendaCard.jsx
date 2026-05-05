@@ -16,6 +16,7 @@ export default function PrendaCard({ prenda, onDelete, onUpdate }) {
     color_principal: prenda.color_principal || '',
   });
   const [saving, setSaving] = useState(false);
+  const [showDetails, setShowDetails] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -44,18 +45,21 @@ export default function PrendaCard({ prenda, onDelete, onUpdate }) {
 
   return (
     <>
-      <div className="bg-white rounded-3xl shadow-card border border-rose-soft/60 overflow-hidden group hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 relative">
+      <div 
+        onClick={() => setShowDetails(true)}
+        className="bg-white rounded-3xl shadow-card border border-rose-soft/60 overflow-hidden group hover:shadow-card-hover hover:-translate-y-1 transition-all duration-300 relative cursor-pointer"
+      >
         {/* Acciones hover */}
         <div className="absolute top-3 right-3 flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 transition-all duration-200">
           <button
-            onClick={() => setIsEditing(true)}
+            onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
             className="p-2 bg-white/95 backdrop-blur-sm text-burgundy rounded-xl shadow-rose hover:bg-rose-light transition-colors"
             title="Editar"
           >
             <Edit className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={onDelete}
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
             className="p-2 bg-white/95 backdrop-blur-sm text-red-400 rounded-xl shadow-rose hover:bg-red-50 transition-colors"
             title="Eliminar"
           >
@@ -92,6 +96,78 @@ export default function PrendaCard({ prenda, onDelete, onUpdate }) {
           </p>
         </div>
       </div>
+
+      {/* Modal detalles */}
+      {showDetails && (
+        <div className="fixed inset-0 bg-plum/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowDetails(false)}>
+          <div className="bg-white rounded-3xl shadow-rose-lg w-full max-w-lg animate-scale-in overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-rose-soft/50">
+              <h3 className="font-playfair text-xl font-semibold text-plum">Detalles de la prenda</h3>
+              <button onClick={() => setShowDetails(false)} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="aspect-[3/4] rounded-2xl overflow-hidden bg-rose-light">
+                {imageUrl ? (
+                  <img src={imageUrl} alt={prenda.nombre} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-rose-soft">
+                    <Shirt className="w-16 h-16" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Nombre</h4>
+                  <p className="text-lg font-medium text-plum">{prenda.nombre}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {prenda.marca && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Marca</h4>
+                      <p className="text-plum">{prenda.marca}</p>
+                    </div>
+                  )}
+                  {prenda.talla && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Talla</h4>
+                      <p className="text-plum">{prenda.talla}</p>
+                    </div>
+                  )}
+                  {prenda.temporada && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Temporada</h4>
+                      <p className="text-plum capitalize">{prenda.temporada}</p>
+                    </div>
+                  )}
+                  {prenda.color_principal && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Color</h4>
+                      <p className="text-plum capitalize">{prenda.color_principal}</p>
+                    </div>
+                  )}
+                </div>
+                {prenda.estilo && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Estilo</h4>
+                    <p className="text-plum">{prenda.estilo}</p>
+                  </div>
+                )}
+                <div>
+                  <h4 className="text-sm font-semibold text-plum/50 uppercase tracking-wider mb-1">Descripción IA</h4>
+                  <p className="text-sm text-plum/70 leading-relaxed italic">
+                    "{prenda.descripcion_ia || 'Esta prenda aún no ha sido analizada.'}"
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 bg-rose-light/30 flex justify-end">
+              <button onClick={() => setShowDetails(false)} className="btn-primary">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal editar */}
       {isEditing && (

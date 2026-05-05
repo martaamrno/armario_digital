@@ -9,6 +9,7 @@ from app.auth import create_access_token, get_current_user, hash_password, verif
 from app.blob_storage import delete_blob, get_signed_url, upload_prenda_image
 from app.database import get_db
 from app.models import Usuario
+from app.email_service import send_welcome_email_real
 from app.schemas import (
     AvatarEstadoOut, AvatarGenerarRequest, Token, UsuarioCreate, UsuarioOut, UsuarioUpdate,
     PasswordChangeRequest
@@ -32,17 +33,12 @@ def registro(body: UsuarioCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(usuario)
     
-    # Enviar email de bienvenida (mock)
-    send_welcome_email(usuario.email, usuario.nombre)
+    # Enviar email de bienvenida real
+    send_welcome_email_real(usuario.email, usuario.nombre)
     
     return usuario
 
 
-def send_welcome_email(email: str, nombre: str):
-    print(f"\n[{email}] === EMAIL DE BIENVENIDA ENVIADO ===")
-    print(f"Asunto: ¡Bienvenido/a a Armario Digital, {nombre}!")
-    print(f"Cuerpo: Hola {nombre}, gracias por registrarte. ¡Esperamos que disfrutes organizando tu armario!")
-    print("===========================================\n")
 
 
 @router.post("/login", response_model=Token)

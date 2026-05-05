@@ -6,24 +6,17 @@ from sqlalchemy.orm import Session
 from app.database import get_db, SessionLocal
 from app.auth import get_current_user
 from app.models import Usuario, Pago
+from app.email_service import send_subscription_email_real
+from app.config import settings
 
 router = APIRouter(prefix="/stripe", tags=["Stripe"])
 
-stripe.api_key = os.getenv("STRIPE_API_KEY")
+stripe.api_key = settings.stripe_api_key
 # TODO: Añadir STRIPE_WEBHOOK_SECRET en .env
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_...")
 
 from datetime import datetime
 
-def send_confirmation_email(email: str, monto: float):
-    # Simulación del envío de correo electrónico
-    # En producción usar smtplib o SendGrid/AWS SES
-    fecha_actual = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"\n[{email}] === EMAIL ENVIADO ===")
-    print(f"Asunto: Confirmación de tu suscripción Premium")
-    print(f"Cuerpo: Has pagado {monto}€ el {fecha_actual}.")
-    print(f"Producto: Suscripción Premium a Armario Digital")
-    print("=================================\n")
 
 @router.post("/create-payment-intent")
 def create_payment_intent(db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
@@ -35,6 +28,9 @@ def create_payment_intent(db: Session = Depends(get_db), usuario: Usuario = Depe
         )
         return {"clientSecret": paymentIntent.client_secret}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"ERROR STRIPE: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/confirm-payment")
@@ -46,7 +42,7 @@ def confirm_payment(db: Session = Depends(get_db), usuario: Usuario = Depends(ge
             pago = Pago(id_usuario=usuario.id_usuario, stripe_payment_id="manual_fallback", monto=999)
             db.add(pago)
             db.commit()
-            send_confirmation_email(usuario.email, 9.99)
+            send_subscription_email_real(usuario.email, 9.99)
         return {"status": "success", "message": "Plan premium activado"}
     except Exception as e:
         import traceback
@@ -84,7 +80,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
                     db.add(pago)
                     db.commit()
                     # Enviar email (mock)
-                    send_confirmation_email(email or usuario.email, payment_intent.amount / 100.0)
+                    send_subscription_email_real(email or usuario.email, payment_intent.amount / 100.0)
             finally:
                 db.close()
                 

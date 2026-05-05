@@ -41,7 +41,7 @@ export default function Login() {
             <div className="w-10 h-10 rounded-2xl gradient-rose flex items-center justify-center shadow-burgundy">
               <span className="text-white text-lg">✦</span>
             </div>
-            <span className="font-playfair text-2xl font-semibold text-plum">Armario Digital</span>
+            <span className="font-playfair text-2xl font-semibold text-plum">OutfitLab</span>
           </div>
           <h1 className="font-playfair text-3xl font-semibold text-plum mb-2">Bienvenida de nuevo</h1>
           <p className="text-plum/50 text-sm">Inicia sesión para acceder a tu armario</p>

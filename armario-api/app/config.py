@@ -28,5 +28,11 @@ class Settings(BaseSettings):
     # Stripe
     stripe_api_key: str
 
+    # Email
+    smtp_server: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = "martamorenodominguezz@gmail.com"
+    smtp_password: str = "" # Se debe configurar en .env
+
 
 settings = Settings()

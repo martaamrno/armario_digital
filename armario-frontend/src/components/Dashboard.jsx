@@ -225,7 +225,7 @@ export default function Dashboard() {
               <div className="w-8 h-8 rounded-xl gradient-rose flex items-center justify-center shadow-burgundy">
                 <span className="text-white text-sm">✦</span>
               </div>
-              <span className="font-playfair text-lg font-semibold text-plum hidden sm:block">Armario Digital</span>
+              <span className="font-playfair text-lg font-semibold text-plum hidden sm:block">OutfitLab</span>
             </div>
           </div>
 
@@ -278,7 +278,7 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-xl gradient-rose flex items-center justify-center shadow-burgundy">
               <span className="text-white text-sm">✦</span>
             </div>
-            <span className="font-playfair text-lg font-semibold text-plum">Armario Digital</span>
+            <span className="font-playfair text-lg font-semibold text-plum">OutfitLab</span>
           </div>
           <button onClick={() => setDrawerOpen(false)} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
             <X className="w-5 h-5" />
