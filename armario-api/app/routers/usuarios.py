@@ -32,10 +32,12 @@ def registro(body: UsuarioCreate, db: Session = Depends(get_db)):
     db.add(usuario)
     db.commit()
     db.refresh(usuario)
-    
-    # Enviar email de bienvenida real
-    send_welcome_email_real(usuario.email, usuario.nombre)
-    
+
+    try:
+        send_welcome_email_real(usuario.email, usuario.nombre)
+    except Exception:
+        pass
+
     return usuario
 
 

@@ -155,13 +155,13 @@ export default function PremiumPlans() {
             )}
           </div>
 
-          <div className={`relative bg-white rounded-3xl shadow-rose-lg border-2 p-8 flex flex-col md:-translate-y-4 overflow-hidden transition-all ${isPremium ? 'border-emerald-400/30 shadow-emerald-100' : 'border-rose-mid/40 shadow-rose-lg'}`}>
-            <div className="absolute top-0 right-8 -translate-y-1/2">
+          <div className={`relative bg-white rounded-3xl shadow-rose-lg border-2 p-8 flex flex-col md:-translate-y-4 transition-all ${isPremium ? 'border-emerald-400/30 shadow-emerald-100' : 'border-rose-mid/40 shadow-rose-lg'}`}>
+            <div className="absolute top-0 right-8 -translate-y-1/2 z-10">
               <span className={`text-white text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-full flex items-center gap-1 shadow-md ${isPremium ? 'bg-emerald-500' : 'bg-burgundy'}`}>
                 {isPremium ? <><Check className="w-3 h-3" /> Plan Activo</> : <><Star className="w-3 h-3" fill="currentColor" /> Recomendado</>}
               </span>
             </div>
-            <div className={`absolute top-0 right-0 w-40 h-40 rounded-full blur-2xl -translate-y-10 translate-x-10 pointer-events-none ${isPremium ? 'bg-emerald-100/30' : 'bg-rose-soft/20'}`} />
+            <div className={`absolute top-0 right-0 w-40 h-40 rounded-full blur-2xl -translate-y-10 translate-x-10 pointer-events-none overflow-hidden ${isPremium ? 'bg-emerald-100/30' : 'bg-rose-soft/20'}`} />
             <div className="mb-6 relative">
               <p className={`text-xs font-semibold uppercase tracking-widest mb-2 ${isPremium ? 'text-emerald-500' : 'text-rose-mid'}`}>
                 {isPremium ? 'Acceso total' : 'Desbloquea todo'}
