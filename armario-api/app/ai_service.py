@@ -70,11 +70,12 @@ Reglas estrictas:
 """
 
 _TRYON_PROMPT = """\
-Virtual try-on: show the person in the first image wearing the clothing items from the other images.
+Virtual try-on: dress the person from the first image in ALL the clothing items shown in the other images.
 Rules:
 - Preserve the person's face, skin tone, body shape, height and pose EXACTLY.
-- Replace only the clothing with the provided garments.
-- Make the result photorealistic with natural lighting and shadows.
+- Replace ALL clothing on the person with EVERY garment provided (top, bottom, shoes, accessories — apply each one).
+- Do NOT keep any original clothing from the person's photo; use only the provided garments.
+- Make the result photorealistic with natural lighting, shadows and fabric folds.
 - Show the complete body from head to toe.\
 """
 

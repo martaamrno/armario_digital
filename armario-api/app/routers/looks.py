@@ -97,9 +97,8 @@ def _task_generar_look(
 
             person_bytes = _compress(person_bytes, max_px=768)
 
-            # Enviar solo 1 prenda al try-on (la principal) para reducir tiempo de procesamiento
             prendas_bytes: list[bytes] = []
-            for p in prendas_elegidas[:1]:
+            for p in prendas_elegidas:
                 try:
                     raw = download_blob_bytes(p.imagen_url)
                     prendas_bytes.append(_compress(raw, max_px=512))

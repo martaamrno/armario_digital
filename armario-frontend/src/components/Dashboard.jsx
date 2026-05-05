@@ -6,8 +6,9 @@ import OutfitGenerator from './OutfitGenerator';
 import PrendaCard from './PrendaCard';
 import {
   LogOut, Plus, Upload, Folder, Search, Loader2,
-  User, Crown, Filter, Trash2, AlertTriangle, X,
-  Sparkles, ImageIcon, ZoomIn, Tag
+  User, Crown, Trash2, X, Menu, Sparkles,
+  ImageIcon, AlertTriangle, ZoomIn, Tag, Filter,
+  ChevronDown, Check
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -17,34 +18,34 @@ export default function Dashboard() {
   const [prendas, setPrendas] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [fotoPerfilUrl, setFotoPerfilUrl] = useState(null);
-  
   const [loading, setLoading] = useState(true);
   const [loadingPrendas, setLoadingPrendas] = useState(false);
-  
-  // Create Armario State
+
+  // Drawer
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Armario form
   const [newArmarioName, setNewArmarioName] = useState('');
   const [newArmarioDesc, setNewArmarioDesc] = useState('');
   const [showCreateArmario, setShowCreateArmario] = useState(false);
+  const [armarioToDelete, setArmarioToDelete] = useState(null);
 
-  // Upload Prenda State
+  // Upload prenda
   const [showUploadPrenda, setShowUploadPrenda] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadPreview, setUploadPreview] = useState(null);
   const [selectedCategoria, setSelectedCategoria] = useState('');
   const fileInputRef = useRef(null);
 
-  // Filters State
+  // Filters
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ temporada: '', id_categoria: '', estilo: '', color_principal: '' });
 
-  // Looks generados
+  // Looks
   const [looks, setLooks] = useState([]);
   const [lookImages, setLookImages] = useState({});
   const [selectedLook, setSelectedLook] = useState(null);
 
-  // Modales
-  const [armarioToDelete, setArmarioToDelete] = useState(null);
-  
   const navigate = useNavigate();
   const location = useLocation();
   const { addToast } = useToast();
@@ -53,7 +54,6 @@ export default function Dashboard() {
     try {
       const data = await api.getLooks();
       setLooks(data);
-      // Cargar imágenes de looks listos
       data.filter(l => l.estado === 'listo' && l.imagen_generada_url).forEach(async (look) => {
         try {
           const res = await api.getOutfitImageUrl(look.id_look);
@@ -63,78 +63,43 @@ export default function Dashboard() {
     } catch (_) {}
   }, []);
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  useEffect(() => { fetchInitialData(); }, []);
 
   useEffect(() => {
-    // Handle Stripe Success Return
     const query = new URLSearchParams(location.search);
-    const session_id = query.get('session_id');
-    const mock = query.get('mock');
-    
-    if (session_id || mock) {
-      const verify = async () => {
-        try {
-          if (mock) {
-            await api.updateAuthMe({ tipo_usuario: 'premium' });
-          } else {
-            await api.verifySession(session_id);
-          }
-          addToast('¡Suscripción Premium confirmada!', 'success');
-          // Refresh user
-          const u = await api.getAuthMe();
-          setUser(u);
-          navigate('/dashboard', { replace: true });
-        } catch(e) {
-          addToast('Hubo un problema verificando el pago', 'error');
-        }
-      };
-      verify();
+    if (query.get('mock')) {
+      api.updateAuthMe({ tipo_usuario: 'premium' })
+        .then(() => api.getAuthMe())
+        .then(u => { setUser(u); addToast('¡Suscripción Premium confirmada!', 'success'); navigate('/dashboard', { replace: true }); })
+        .catch(() => addToast('Problema verificando el pago', 'error'));
     }
   }, [location.search]);
 
   useEffect(() => {
-    if (selectedArmario) {
-      fetchPrendas(selectedArmario.id_armario);
-    } else {
-      setPrendas([]);
-    }
+    if (selectedArmario) fetchPrendas(selectedArmario.id_armario);
+    else setPrendas([]);
   }, [selectedArmario]);
 
   const fetchInitialData = async () => {
     try {
       const [userData, armariosData, catsData] = await Promise.all([
-        api.getAuthMe(),
-        api.getArmarios(),
-        api.getCategorias().catch(() => []) 
+        api.getAuthMe(), api.getArmarios(), api.getCategorias().catch(() => []),
       ]);
       setUser(userData);
       setArmarios(armariosData);
       setCategorias(catsData);
-
       if (catsData.length > 0) setSelectedCategoria(catsData[0].id_categoria);
-
-      if (armariosData.length > 0 && !selectedArmario) {
-        setSelectedArmario(armariosData[0]);
-      }
-
-      // Cargar looks
+      if (armariosData.length > 0) setSelectedArmario(armariosData[0]);
       fetchLooks();
-
-      // Cargar foto perfil
       if (userData.foto_perfil_url) {
-        const pData = await api.getFotoPerfilUrl();
-        if (pData) setFotoPerfilUrl(pData.url);
+        const p = await api.getFotoPerfilUrl();
+        if (p) setFotoPerfilUrl(p.url);
       } else if (userData.avatar_url) {
-        const avatarData = await api.getAvatarUrl();
-        if (avatarData) setFotoPerfilUrl(avatarData.url);
+        const a = await api.getAvatarUrl();
+        if (a) setFotoPerfilUrl(a.url);
       }
     } catch (err) {
-      if (err.message?.includes('401') || err.message === 'Unauthorized') {
-        logout();
-      }
-      console.error(err);
+      if (err.message?.includes('401') || err.message === 'Unauthorized') logout();
     } finally {
       setLoading(false);
     }
@@ -142,29 +107,21 @@ export default function Dashboard() {
 
   const fetchPrendas = async (id) => {
     setLoadingPrendas(true);
-    try {
-      const data = await api.getPrendas(id);
-      setPrendas(data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoadingPrendas(false);
-    }
+    try { setPrendas(await api.getPrendas(id)); }
+    catch (_) {}
+    finally { setLoadingPrendas(false); }
   };
 
   const handleCreateArmario = async (e) => {
     e.preventDefault();
     try {
-      const newArmario = await api.createArmario({ nombre: newArmarioName, descripcion: newArmarioDesc });
-      setArmarios([...armarios, newArmario]);
-      setSelectedArmario(newArmario);
-      setNewArmarioName('');
-      setNewArmarioDesc('');
+      const a = await api.createArmario({ nombre: newArmarioName, descripcion: newArmarioDesc });
+      setArmarios([...armarios, a]);
+      setSelectedArmario(a);
+      setNewArmarioName(''); setNewArmarioDesc('');
       setShowCreateArmario(false);
-      addToast('Armario creado con éxito', 'success');
-    } catch (err) {
-      addToast(err.message || 'Error al crear armario', 'error');
-    }
+      addToast('Armario creado', 'success');
+    } catch (err) { addToast(err.message || 'Error al crear armario', 'error'); }
   };
 
   const confirmDeleteArmario = async () => {
@@ -174,30 +131,20 @@ export default function Dashboard() {
       setArmarios(armarios.filter(a => a.id_armario !== armarioToDelete.id_armario));
       if (selectedArmario?.id_armario === armarioToDelete.id_armario) setSelectedArmario(null);
       addToast('Armario eliminado', 'success');
-    } catch (err) {
-      addToast('Error al eliminar armario', 'error');
-    } finally {
-      setArmarioToDelete(null);
-    }
+    } catch (_) { addToast('Error al eliminar', 'error'); }
+    finally { setArmarioToDelete(null); }
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setUploadPreview(URL.createObjectURL(file));
-    } else {
-      setUploadPreview(null);
-    }
+    const f = e.target.files[0];
+    setUploadPreview(f ? URL.createObjectURL(f) : null);
   };
 
   const handleUploadPrenda = async (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     formData.append('id_armario', selectedArmario.id_armario);
-    if(!formData.get('id_categoria')) {
-        formData.append('id_categoria', selectedCategoria || 1);
-    }
-
+    if (!formData.get('id_categoria')) formData.append('id_categoria', selectedCategoria || 1);
     setUploading(true);
     try {
       await api.uploadPrenda(formData);
@@ -205,458 +152,500 @@ export default function Dashboard() {
       setShowUploadPrenda(false);
       setUploadPreview(null);
       e.target.reset();
-      addToast('Prenda subida con éxito. IA analizando...', 'success');
-    } catch (err) {
-      addToast(err.message || 'Error al subir prenda', 'error');
-    } finally {
-      setUploading(false);
-    }
+      addToast('Prenda añadida. IA analizando…', 'success');
+    } catch (err) { addToast(err.message || 'Error al subir prenda', 'error'); }
+    finally { setUploading(false); }
   };
 
-  const handleDeletePrenda = async (id_prenda) => {
+  const handleDeletePrenda = async (id) => {
     if (!window.confirm('¿Eliminar esta prenda?')) return;
     try {
-      await api.deletePrenda(id_prenda);
-      setPrendas(prendas.filter(p => p.id_prenda !== id_prenda));
+      await api.deletePrenda(id);
+      setPrendas(prendas.filter(p => p.id_prenda !== id));
       addToast('Prenda eliminada', 'success');
-    } catch (err) {
-      addToast('Error al eliminar prenda', 'error');
-    }
+    } catch (_) { addToast('Error al eliminar prenda', 'error'); }
   };
 
-  const handleDeleteLook = async (id_look) => {
+  const handleDeleteLook = async (id) => {
     if (!window.confirm('¿Eliminar este look?')) return;
     try {
-      await api.deleteLook(id_look);
-      setLooks(looks.filter(l => l.id_look !== id_look));
-      setLookImages(prev => { const n = { ...prev }; delete n[id_look]; return n; });
+      await api.deleteLook(id);
+      setLooks(looks.filter(l => l.id_look !== id));
+      setLookImages(prev => { const n = { ...prev }; delete n[id]; return n; });
       addToast('Look eliminado', 'success');
-    } catch (_) {
-      addToast('Error al eliminar look', 'error');
-    }
+    } catch (_) { addToast('Error al eliminar look', 'error'); }
   };
 
   const logout = () => {
-    // Limpieza completa
-    localStorage.removeItem('access_token');
-    localStorage.clear(); // Por si acaso
-    setUser(null);
-    setArmarios([]);
-    setSelectedArmario(null);
-    setPrendas([]);
-    // Redirección
+    localStorage.clear();
     navigate('/login', { replace: true });
   };
 
-  // Filter Logic
-  const prendasFiltradas = useMemo(() => {
-    return prendas.filter(p => {
-      if (filters.temporada && p.temporada !== filters.temporada) return false;
-      if (filters.id_categoria && p.id_categoria.toString() !== filters.id_categoria) return false;
-      if (filters.estilo && p.estilo && !p.estilo.toLowerCase().includes(filters.estilo.toLowerCase())) return false;
-      if (filters.color_principal && p.color_principal && !p.color_principal.toLowerCase().includes(filters.color_principal.toLowerCase())) return false;
-      return true;
-    });
-  }, [prendas, filters]);
+  const prendasFiltradas = useMemo(() => prendas.filter(p => {
+    if (filters.temporada && p.temporada !== filters.temporada) return false;
+    if (filters.id_categoria && p.id_categoria.toString() !== filters.id_categoria) return false;
+    if (filters.estilo && p.estilo && !p.estilo.toLowerCase().includes(filters.estilo.toLowerCase())) return false;
+    if (filters.color_principal && p.color_principal && !p.color_principal.toLowerCase().includes(filters.color_principal.toLowerCase())) return false;
+    return true;
+  }), [prendas, filters]);
 
-  // Unique values for filter dropdowns
   const uniqueTemporadas = [...new Set(prendas.map(p => p.temporada).filter(Boolean))];
   const uniqueEstilos = [...new Set(prendas.map(p => p.estilo).filter(Boolean))];
+  const isPremium = user?.tipo_usuario === 'premium';
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+      <div className="min-h-screen bg-rose-light flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl gradient-rose flex items-center justify-center shadow-burgundy animate-pulse">
+            <span className="text-white text-xl">✦</span>
+          </div>
+          <p className="font-playfair text-plum/60 text-lg">Cargando tu armario…</p>
+        </div>
       </div>
     );
   }
 
-  const isPremium = user?.tipo_usuario === 'premium';
-
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 p-1.5 rounded-lg shadow-md">
-              <Folder className="w-6 h-6 text-white" />
+    <div className="min-h-screen bg-rose-light font-inter">
+
+      {/* ── HEADER ── */}
+      <header className="fixed top-0 inset-x-0 z-30 bg-white/90 backdrop-blur-md border-b border-rose-soft/60 h-16">
+        <div className="max-w-7xl mx-auto px-4 h-full flex items-center justify-between gap-4">
+          {/* Hamburger + Logo */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-2 rounded-xl hover:bg-rose-light text-plum transition-colors"
+              aria-label="Abrir menú"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl gradient-rose flex items-center justify-center shadow-burgundy">
+                <span className="text-white text-sm">✦</span>
+              </div>
+              <span className="font-playfair text-lg font-semibold text-plum hidden sm:block">Armario Digital</span>
             </div>
-            <h1 className="text-xl font-bold text-gray-900 tracking-tight">Armario Digital</h1>
           </div>
-          
-          <div className="flex items-center gap-6">
-            {isPremium ? (
-               <Link to="/premium" className="flex items-center gap-1 text-xs font-bold text-indigo-800 bg-indigo-100 px-3 py-1 rounded-full uppercase tracking-wide hover:bg-indigo-200 transition">
-                 <Crown className="w-3 h-3" /> Premium
-               </Link>
-            ) : (
-               <Link to="/premium" className="text-sm font-bold text-indigo-600 hover:text-indigo-800 transition bg-indigo-50 px-4 py-1.5 rounded-full">
-                 Mejorar a Premium
-               </Link>
-            )}
 
-            <div className="flex items-center gap-4 border-l pl-4 border-gray-200">
-              <Link to="/profile" className="flex items-center gap-3 text-gray-700 hover:text-indigo-600 transition-all text-sm font-medium group">
-                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm ring-1 ring-gray-200">
-                  {fotoPerfilUrl ? (
-                    <img src={fotoPerfilUrl} alt="avatar" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
-                  ) : (
-                    <User className="w-5 h-5 text-gray-400" />
-                  )}
-                </div>
-                <span className="hidden sm:inline font-semibold">{user?.nombre}</span>
-              </Link>
-
-              <button onClick={logout} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all" title="Cerrar sesión">
-                <LogOut className="w-5 h-5" />
-              </button>
+          {/* Armario activo */}
+          {selectedArmario && (
+            <div className="hidden md:flex items-center gap-2 px-4 py-1.5 bg-rose-light rounded-full border border-rose-soft">
+              <Folder className="w-4 h-4 text-burgundy" />
+              <span className="text-sm font-medium text-plum">{selectedArmario.nombre}</span>
+              <span className="text-xs text-plum/40">· {prendas.length} prendas</span>
             </div>
+          )}
+
+          {/* Right */}
+          <div className="flex items-center gap-2">
+            {isPremium ? (
+              <Link to="/premium" className="hidden sm:flex items-center gap-1.5 bg-rose-soft text-burgundy text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide hover:bg-rose-mid hover:text-white transition-all">
+                <Crown className="w-3 h-3" /> Premium
+              </Link>
+            ) : (
+              <Link to="/premium" className="hidden sm:block text-xs font-semibold text-burgundy hover:text-burgundy-dark bg-rose-light border border-rose-soft px-3 py-1.5 rounded-full transition-all">
+                Mejorar plan
+              </Link>
+            )}
+            <Link to="/profile" className="flex items-center gap-2 px-2 py-1 rounded-xl hover:bg-rose-light transition-colors">
+              <div className="w-8 h-8 rounded-full bg-rose-soft overflow-hidden border-2 border-rose-soft flex items-center justify-center">
+                {fotoPerfilUrl
+                  ? <img src={fotoPerfilUrl} alt="avatar" className="w-full h-full object-cover" />
+                  : <User className="w-4 h-4 text-burgundy" />
+                }
+              </div>
+              <span className="hidden sm:block text-sm font-medium text-plum">{user?.nombre}</span>
+            </Link>
+            <button onClick={logout} className="p-2 text-plum/40 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all" title="Salir">
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        {/* Sidebar / Armarios List */}
-        <div className="lg:col-span-3 space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center justify-between mb-4 px-2">
-              <h2 className="text-lg font-bold text-gray-800">Mis Armarios</h2>
-              <button 
-                onClick={() => setShowCreateArmario(!showCreateArmario)}
-                className="p-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition-colors"
+      {/* ── DRAWER OVERLAY ── */}
+      {drawerOpen && (
+        <div className="fixed inset-0 z-40 bg-plum/30 backdrop-blur-sm animate-fade-in" onClick={() => setDrawerOpen(false)} />
+      )}
+
+      {/* ── DRAWER ── */}
+      <aside className={`fixed top-0 left-0 h-full w-80 max-w-[85vw] z-50 bg-white shadow-rose-lg flex flex-col transition-transform duration-300 ease-out ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        {/* Drawer Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-rose-soft/50">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl gradient-rose flex items-center justify-center shadow-burgundy">
+              <span className="text-white text-sm">✦</span>
+            </div>
+            <span className="font-playfair text-lg font-semibold text-plum">Armario Digital</span>
+          </div>
+          <button onClick={() => setDrawerOpen(false)} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+          {/* Mis Armarios */}
+          <section>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-playfair text-base font-semibold text-plum">Mis Armarios</h2>
+              <button
+                onClick={() => setShowCreateArmario(v => !v)}
+                className="p-1.5 bg-rose-light hover:bg-rose-soft text-burgundy rounded-xl transition-colors"
                 title="Nuevo armario"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-4 h-4" />
               </button>
             </div>
 
             {showCreateArmario && (
-              <form onSubmit={handleCreateArmario} className="mb-4 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-100 animate-fade-in">
-                <input type="text" placeholder="Nombre del armario" required className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none" value={newArmarioName} onChange={e => setNewArmarioName(e.target.value)} />
-                <input type="text" placeholder="Descripción" className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-indigo-500 outline-none" value={newArmarioDesc} onChange={e => setNewArmarioDesc(e.target.value)} />
-                <button type="submit" className="w-full text-sm bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 transition-colors font-bold">Guardar Armario</button>
+              <form onSubmit={handleCreateArmario} className="mb-3 p-3 bg-rose-light rounded-2xl border border-rose-soft space-y-2 animate-fade-in">
+                <input type="text" placeholder="Nombre del armario" required className="input-field text-sm py-2" value={newArmarioName} onChange={e => setNewArmarioName(e.target.value)} />
+                <input type="text" placeholder="Descripción (opcional)" className="input-field text-sm py-2" value={newArmarioDesc} onChange={e => setNewArmarioDesc(e.target.value)} />
+                <button type="submit" className="btn-primary w-full py-2 text-sm">Guardar armario</button>
               </form>
             )}
 
             <div className="space-y-1">
               {armarios.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-6 border-2 border-dashed border-gray-100 rounded-lg">No tienes armarios aún.</p>
-              ) : (
-                armarios.map(arm => (
-                  <div key={arm.id_armario} className={`group flex items-center justify-between p-3 rounded-xl transition-all cursor-pointer ${
-                    selectedArmario?.id_armario === arm.id_armario ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'hover:bg-gray-50 text-gray-700'
-                  }`} onClick={() => setSelectedArmario(arm)}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <Folder className={`w-5 h-5 shrink-0 ${selectedArmario?.id_armario === arm.id_armario ? 'text-indigo-200' : 'text-gray-400'}`} />
-                      <div className="truncate">
-                        <span className="font-bold text-sm block truncate">{arm.nombre}</span>
-                        {arm.descripcion && <span className={`text-[10px] truncate block ${selectedArmario?.id_armario === arm.id_armario ? 'text-indigo-100' : 'text-gray-400'}`}>{arm.descripcion}</span>}
-                      </div>
+                <p className="text-center text-sm text-plum/40 py-6 border-2 border-dashed border-rose-soft rounded-2xl">Sin armarios aún</p>
+              ) : armarios.map(arm => (
+                <div
+                  key={arm.id_armario}
+                  onClick={() => { setSelectedArmario(arm); setDrawerOpen(false); }}
+                  className={`group flex items-center justify-between p-3 rounded-2xl cursor-pointer transition-all duration-200 ${
+                    selectedArmario?.id_armario === arm.id_armario
+                      ? 'bg-burgundy text-white shadow-burgundy'
+                      : 'bg-rose-light/60 hover:bg-rose-soft/40 text-plum border border-rose-soft/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Folder className={`w-4 h-4 shrink-0 ${selectedArmario?.id_armario === arm.id_armario ? 'text-rose-soft' : 'text-burgundy/50'}`} />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm truncate">{arm.nombre}</p>
+                      {arm.descripcion && <p className={`text-xs truncate ${selectedArmario?.id_armario === arm.id_armario ? 'text-rose-soft/70' : 'text-plum/40'}`}>{arm.descripcion}</p>}
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); setArmarioToDelete(arm); }} className={`p-1 rounded-md transition-colors ${
-                      selectedArmario?.id_armario === arm.id_armario ? 'hover:bg-indigo-500 text-indigo-200' : 'opacity-0 group-hover:opacity-100 hover:bg-red-50 text-gray-400 hover:text-red-500'
-                    }`}>
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
-          
-          {selectedArmario && (
-            isPremium ? (
-              <OutfitGenerator idArmario={selectedArmario.id_armario} prendas={prendas} hasFotoCuerpo={!!user?.foto_cuerpo_url} isPremium={isPremium} onLookGenerated={fetchLooks} />
-            ) : (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
-                <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto">
-                   <Crown className="w-6 h-6" />
+                  <button
+                    onClick={e => { e.stopPropagation(); setArmarioToDelete(arm); }}
+                    className={`p-1 rounded-lg opacity-0 group-hover:opacity-100 transition-all ${
+                      selectedArmario?.id_armario === arm.id_armario ? 'hover:bg-white/20 text-rose-soft' : 'hover:bg-red-50 text-plum/30 hover:text-red-400'
+                    }`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                 </div>
-                <h3 className="font-bold text-gray-900">IA Stylist Premium</h3>
-                <p className="text-sm text-gray-500 px-2">¿Quieres que la IA te recomiende outfits y ver cómo te quedan con el Virtual Try-On?</p>
-                <Link to="/premium" className="inline-block w-full py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition">Saber más</Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Outfit Generator en drawer */}
+          {selectedArmario && isPremium && (
+            <section>
+              <OutfitGenerator
+                idArmario={selectedArmario.id_armario}
+                prendas={prendas}
+                hasFotoCuerpo={!!user?.foto_cuerpo_url}
+                isPremium={isPremium}
+                onLookGenerated={fetchLooks}
+              />
+            </section>
+          )}
+
+          {selectedArmario && !isPremium && (
+            <section className="card p-5 text-center">
+              <div className="w-10 h-10 gradient-rose rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-burgundy">
+                <Crown className="w-5 h-5 text-white" />
               </div>
-            )
+              <h3 className="font-playfair font-semibold text-plum mb-1">IA Stylist</h3>
+              <p className="text-xs text-plum/50 mb-4">Genera outfits y pruébatelos virtualmente con IA.</p>
+              <Link to="/premium" onClick={() => setDrawerOpen(false)} className="btn-primary w-full py-2 text-sm">
+                Ver planes
+              </Link>
+            </section>
           )}
         </div>
+      </aside>
 
-        {/* Main Content / Prendas */}
-        <div className="lg:col-span-9">
+      {/* ── MAIN ── */}
+      <main className="pt-16 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
           {!selectedArmario ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center h-full flex flex-col items-center justify-center">
-              <div className="bg-gray-50 w-24 h-24 rounded-full flex items-center justify-center mb-6">
-                <Search className="w-12 h-12 text-gray-300" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-fade-in">
+              <div className="w-20 h-20 gradient-rose rounded-3xl flex items-center justify-center shadow-burgundy mb-6">
+                <span className="text-white text-3xl">✦</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900">Bienvenido/a, {user?.nombre}</h2>
-              <p className="text-gray-500 mt-2 max-w-sm">Selecciona un armario o crea uno nuevo para empezar a gestionar tus prendas.</p>
+              <h2 className="font-playfair text-3xl font-semibold text-plum mb-2">Bienvenida, {user?.nombre}</h2>
+              <p className="text-plum/50 mb-6">Abre el menú para seleccionar o crear un armario</p>
+              <button onClick={() => setDrawerOpen(true)} className="btn-primary">
+                <Menu className="w-4 h-4" /> Abrir menú
+              </button>
             </div>
           ) : (
-            <div className="space-y-6">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-8 animate-fade-in">
+
+              {/* Header del armario */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{selectedArmario.nombre}</h2>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-sm text-gray-400">{selectedArmario.descripcion || 'Sin descripción'}</span>
-                    <span className="w-1 h-1 bg-gray-300 rounded-full"></span>
-                    <span className="text-sm font-bold text-indigo-600">{prendas.length} prendas</span>
-                  </div>
+                  <h1 className="font-playfair text-3xl md:text-4xl font-semibold text-plum">{selectedArmario.nombre}</h1>
+                  <p className="text-plum/50 text-sm mt-1">
+                    {selectedArmario.descripcion && <>{selectedArmario.descripcion} · </>}
+                    <span className="text-burgundy font-medium">{prendas.length} prendas</span>
+                  </p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => setShowFilters(!showFilters)} className={`px-4 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 border ${
-                    showFilters ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                  }`}>
+                  <button
+                    onClick={() => setShowFilters(v => !v)}
+                    className={`btn-secondary py-2.5 px-4 text-sm ${showFilters ? 'border-burgundy text-burgundy' : ''}`}
+                  >
                     <Filter className="w-4 h-4" /> Filtros
                   </button>
-                  <button onClick={() => setShowUploadPrenda(!showUploadPrenda)} className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-gray-200">
-                    <Plus className="w-4 h-4" /> Añadir Prenda
+                  <button onClick={() => setShowUploadPrenda(true)} className="btn-primary py-2.5 px-4 text-sm">
+                    <Plus className="w-4 h-4" /> Añadir prenda
                   </button>
                 </div>
               </div>
 
+              {/* Filtros */}
               {showFilters && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in">
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Categoría</label>
-                    <select className="w-full border-gray-200 rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-indigo-100" value={filters.id_categoria} onChange={e => setFilters({...filters, id_categoria: e.target.value})}>
-                      <option value="">Todas</option>
-                      {categorias.map(c => <option key={c.id_categoria} value={c.id_categoria}>{c.nombre}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Temporada</label>
-                    <select className="w-full border-gray-200 rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-indigo-100" value={filters.temporada} onChange={e => setFilters({...filters, temporada: e.target.value})}>
-                      <option value="">Todas</option>
-                      {uniqueTemporadas.map(t => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Estilo</label>
-                    <select className="w-full border-gray-200 rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-indigo-100" value={filters.estilo} onChange={e => setFilters({...filters, estilo: e.target.value})}>
-                      <option value="">Todos</option>
-                      {uniqueEstilos.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase mb-1.5 block">Color</label>
-                    <input type="text" placeholder="Ej: azul" className="w-full border-gray-200 rounded-lg text-sm p-2 outline-none focus:ring-2 focus:ring-indigo-100" value={filters.color_principal} onChange={e => setFilters({...filters, color_principal: e.target.value})} />
+                <div className="card p-5 animate-slide-up">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <label className="label-field">Categoría</label>
+                      <select className="input-field text-sm py-2" value={filters.id_categoria} onChange={e => setFilters({ ...filters, id_categoria: e.target.value })}>
+                        <option value="">Todas</option>
+                        {categorias.map(c => <option key={c.id_categoria} value={c.id_categoria}>{c.nombre}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-field">Temporada</label>
+                      <select className="input-field text-sm py-2" value={filters.temporada} onChange={e => setFilters({ ...filters, temporada: e.target.value })}>
+                        <option value="">Todas</option>
+                        {uniqueTemporadas.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-field">Estilo</label>
+                      <select className="input-field text-sm py-2" value={filters.estilo} onChange={e => setFilters({ ...filters, estilo: e.target.value })}>
+                        <option value="">Todos</option>
+                        {uniqueEstilos.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-field">Color</label>
+                      <input type="text" placeholder="Ej: negro" className="input-field text-sm py-2" value={filters.color_principal} onChange={e => setFilters({ ...filters, color_principal: e.target.value })} />
+                    </div>
                   </div>
                 </div>
               )}
 
+              {/* Upload prenda modal */}
               {showUploadPrenda && (
-                <div className="bg-white rounded-2xl shadow-xl border border-indigo-100 p-8 animate-fade-in relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
-                  <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
-                    <div className="p-2 bg-indigo-50 rounded-lg"><Upload className="w-5 h-5 text-indigo-600" /></div>
-                    Nueva Prenda
-                  </h3>
-                  <form onSubmit={handleUploadPrenda} className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-5">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Nombre de la prenda</label>
-                        <input type="text" name="nombre" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-all bg-gray-50" placeholder="Ej: Americana azul marino" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-bold text-gray-700 mb-1.5">Categoría</label>
-                          {categorias.length > 0 ? (
-                            <select name="id_categoria" required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50 outline-none" value={selectedCategoria} onChange={(e) => setSelectedCategoria(e.target.value)}>
-                              {categorias.map(cat => <option key={cat.id_categoria} value={cat.id_categoria}>{cat.nombre}</option>)}
-                            </select>
-                          ) : (
-                             <input type="number" name="id_categoria" defaultValue={1} min={1} required className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-50" />
-                          )}
-                        </div>
-                        <div>
-                          <label className="block text-sm font-bold text-gray-700 mb-1.5">Talla</label>
-                          <input type="text" name="talla" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50 outline-none" placeholder="Ej: L" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1.5">Marca</label>
-                        <input type="text" name="marca" className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50 outline-none" placeholder="Ej: Massimo Dutti" />
-                      </div>
+                <div className="fixed inset-0 bg-plum/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+                  <div className="bg-white rounded-3xl shadow-rose-lg w-full max-w-2xl animate-scale-in overflow-hidden">
+                    <div className="flex items-center justify-between px-6 py-5 border-b border-rose-soft/50">
+                      <h3 className="font-playfair text-xl font-semibold text-plum flex items-center gap-2">
+                        <Upload className="w-5 h-5 text-burgundy" /> Nueva prenda
+                      </h3>
+                      <button onClick={() => { setShowUploadPrenda(false); setUploadPreview(null); }} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
+                        <X className="w-5 h-5" />
+                      </button>
                     </div>
-                    <div className="flex flex-col">
-                      <label className="block text-sm font-bold text-gray-700 mb-1.5">Fotografía</label>
-                      <div className="flex-1 w-full border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center hover:border-indigo-400 hover:bg-indigo-50/30 transition-all cursor-pointer group overflow-hidden relative" onClick={() => fileInputRef.current?.click()}>
-                        {uploadPreview ? (
-                          <>
-                            <img src={uploadPreview} alt="Preview" className={`w-full h-full object-cover transition-opacity ${uploading ? 'opacity-40' : ''}`} />
-                            {uploading && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="w-10 h-10 text-indigo-600 animate-spin" /></div>}
-                          </>
-                        ) : (
-                          <div className="text-center p-8">
-                            <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                              <Upload className="w-6 h-6 text-gray-400 group-hover:text-indigo-600" />
-                            </div>
-                            <span className="text-sm font-bold text-gray-600">Subir imagen</span>
-                            <p className="text-xs text-gray-400 mt-1">PNG, JPG hasta 10MB</p>
+                    <form onSubmit={handleUploadPrenda} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="label-field">Nombre de la prenda</label>
+                          <input type="text" name="nombre" required className="input-field" placeholder="Ej: Sudadera crema Fake Gods" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="label-field">Categoría</label>
+                            {categorias.length > 0 ? (
+                              <select name="id_categoria" required className="input-field text-sm py-2.5" value={selectedCategoria} onChange={e => setSelectedCategoria(e.target.value)}>
+                                {categorias.map(c => <option key={c.id_categoria} value={c.id_categoria}>{c.nombre}</option>)}
+                              </select>
+                            ) : (
+                              <input type="number" name="id_categoria" defaultValue={1} min={1} required className="input-field" />
+                            )}
                           </div>
-                        )}
-                        <input type="file" name="imagen" accept="image/*" required ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                          <div>
+                            <label className="label-field">Talla</label>
+                            <input type="text" name="talla" className="input-field" placeholder="Ej: M" />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="label-field">Marca</label>
+                          <input type="text" name="marca" className="input-field" placeholder="Ej: Zara" />
+                        </div>
                       </div>
-                    </div>
-                    <div className="md:col-span-2 flex justify-end gap-3 mt-2 border-t pt-6">
-                      <button type="button" onClick={() => {setShowUploadPrenda(false); setUploadPreview(null);}} className="px-6 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">
-                        Cancelar
-                      </button>
-                      <button type="submit" disabled={uploading} className="px-8 py-2.5 text-sm font-black text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-lg shadow-indigo-100 disabled:opacity-70">
-                        {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Analizando Prenda...</> : 'Guardar Prenda'}
-                      </button>
-                    </div>
-                  </form>
+
+                      <div>
+                        <label className="label-field">Fotografía</label>
+                        <div
+                          onClick={() => fileInputRef.current?.click()}
+                          className="h-52 border-2 border-dashed border-rose-soft rounded-2xl flex items-center justify-center cursor-pointer hover:border-rose-mid hover:bg-rose-light/50 transition-all overflow-hidden relative group"
+                        >
+                          {uploadPreview ? (
+                            <>
+                              <img src={uploadPreview} alt="preview" className={`w-full h-full object-cover ${uploading ? 'opacity-50' : ''}`} />
+                              {uploading && <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-sm"><Loader2 className="w-8 h-8 text-burgundy animate-spin" /></div>}
+                            </>
+                          ) : (
+                            <div className="text-center p-6">
+                              <Upload className="w-8 h-8 text-rose-mid mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                              <p className="text-sm font-medium text-plum/60">Subir imagen</p>
+                              <p className="text-xs text-plum/30 mt-1">PNG, JPG hasta 10MB</p>
+                            </div>
+                          )}
+                          <input type="file" name="imagen" accept="image/*" required ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-2 flex justify-end gap-3 border-t border-rose-soft/50 pt-4">
+                        <button type="button" onClick={() => { setShowUploadPrenda(false); setUploadPreview(null); }} className="btn-ghost">Cancelar</button>
+                        <button type="submit" disabled={uploading} className="btn-primary">
+                          {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Analizando…</> : <><Plus className="w-4 h-4" /> Guardar prenda</>}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
                 </div>
               )}
 
-              {/* ── Mis Looks ── */}
+              {/* Mis Looks */}
               {looks.length > 0 && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                  <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-indigo-500" /> Mis Looks Generados
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <section>
+                  <h2 className="section-title mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-burgundy" /> Mis Looks
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {looks.map(look => {
                       const img = lookImages[look.id_look];
-                      const isGenerating = look.estado === 'generando' || look.estado === 'pendiente';
+                      const isGenerating = ['generando','pendiente'].includes(look.estado);
                       const isError = look.estado === 'error';
-                      const isClickable = !!img;
                       return (
                         <div
                           key={look.id_look}
-                          className={`border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group ${isClickable ? 'cursor-pointer' : ''}`}
-                          onClick={() => isClickable && setSelectedLook(look)}
+                          onClick={() => img && setSelectedLook(look)}
+                          className={`bg-white rounded-3xl shadow-card border border-rose-soft/60 overflow-hidden group transition-all duration-300 ${img ? 'hover:shadow-rose-lg hover:-translate-y-1 cursor-pointer' : ''}`}
                         >
-                          <div className="relative bg-gray-50 h-48 flex items-center justify-center">
+                          <div className="relative aspect-[3/4] bg-rose-light flex items-center justify-center overflow-hidden">
                             {img ? (
                               <>
-                                <img src={img} alt={look.nombre} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300" />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
-                                  <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                <img src={img} alt={look.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                <div className="absolute inset-0 bg-plum/0 group-hover:bg-plum/20 transition-all flex items-center justify-center">
+                                  <ZoomIn className="w-7 h-7 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
                                 </div>
                               </>
                             ) : isGenerating ? (
-                              <div className="flex flex-col items-center gap-2 text-purple-600">
-                                <Loader2 className="w-8 h-8 animate-spin" />
-                                <span className="text-xs font-medium">Generando...</span>
+                              <div className="flex flex-col items-center gap-2 text-burgundy/50">
+                                <Loader2 className="w-7 h-7 animate-spin" />
+                                <span className="text-xs">Generando…</span>
                               </div>
                             ) : isError ? (
-                              <div className="flex flex-col items-center gap-2 text-red-400">
-                                <AlertTriangle className="w-8 h-8" />
-                                <span className="text-xs font-medium">Error al generar</span>
+                              <div className="flex flex-col items-center gap-2 text-red-300">
+                                <AlertTriangle className="w-7 h-7" />
+                                <span className="text-xs text-red-400">Error</span>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center gap-2 text-gray-300">
-                                <ImageIcon className="w-8 h-8" />
-                                <span className="text-xs text-gray-400">Sin imagen</span>
-                              </div>
+                              <ImageIcon className="w-8 h-8 text-rose-soft" />
                             )}
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleDeleteLook(look.id_look); }}
-                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-white/90 rounded-full text-gray-400 hover:text-red-500 transition-all shadow-sm z-10"
+                              onClick={e => { e.stopPropagation(); handleDeleteLook(look.id_look); }}
+                              className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-xl text-plum/30 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all shadow-sm z-10"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                           <div className="p-3">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-bold text-sm text-gray-800 truncate">{look.nombre}</p>
-                              <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                look.estado === 'listo' ? 'bg-green-100 text-green-700' :
-                                isGenerating ? 'bg-purple-100 text-purple-700' :
-                                isError ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <p className="font-semibold text-sm text-plum truncate">{look.nombre}</p>
+                              <span className={`shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                                look.estado === 'listo' ? 'bg-emerald-50 text-emerald-600' :
+                                isGenerating ? 'bg-lavender-soft text-lavender' :
+                                'bg-red-50 text-red-400'
                               }`}>
-                                {look.estado === 'listo' ? 'Listo' : isGenerating ? 'Generando' : isError ? 'Error' : look.estado}
+                                {look.estado === 'listo' ? 'Listo' : isGenerating ? 'Generando' : 'Error'}
                               </span>
                             </div>
-                            {look.descripcion && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{look.descripcion}</p>}
-                            {isError && look.error_mensaje && <p className="text-xs text-red-400 mt-1 line-clamp-2">{look.error_mensaje}</p>}
-                            {isClickable && <p className="text-xs text-indigo-500 mt-1 font-medium">Haz clic para ver en detalle</p>}
+                            {look.descripcion && <p className="text-xs text-plum/40 line-clamp-2 leading-relaxed">{look.descripcion}</p>}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
+                </section>
               )}
 
-              {loadingPrendas ? (
-                <div className="py-24 flex flex-col items-center gap-4">
-                  <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-                  <p className="text-sm font-medium text-gray-500">Cargando tu armario...</p>
-                </div>
-              ) : prendasFiltradas.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-dashed border-gray-200 p-20 text-center text-gray-500 shadow-sm">
-                  <Folder className="w-16 h-16 text-gray-200 mx-auto mb-4" />
-                  <p className="font-black text-gray-900 text-lg">No hay prendas aquí</p>
-                  <p className="text-sm mt-1 max-w-xs mx-auto">Empieza a llenar tu armario digital subiendo fotos de tu ropa favorita.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {prendasFiltradas.map(prenda => (
-                    <PrendaCard 
-                      key={prenda.id_prenda} 
-                      prenda={prenda} 
-                      onDelete={() => handleDeletePrenda(prenda.id_prenda)} 
-                      onUpdate={(updated) => setPrendas(prendas.map(p => p.id_prenda === updated.id_prenda ? updated : p))}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Prendas */}
+              <section>
+                <h2 className="section-title mb-4">Mis Prendas</h2>
+                {loadingPrendas ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="bg-white rounded-3xl shadow-card border border-rose-soft/60 overflow-hidden">
+                        <div className="aspect-[3/4] bg-rose-soft/20 animate-pulse" />
+                        <div className="p-4 space-y-2">
+                          <div className="h-3 bg-rose-soft/30 rounded-full animate-pulse w-3/4" />
+                          <div className="h-2 bg-rose-soft/20 rounded-full animate-pulse w-1/2" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : prendasFiltradas.length === 0 ? (
+                  <div className="card p-16 text-center">
+                    <div className="w-16 h-16 gradient-rose rounded-3xl flex items-center justify-center mx-auto mb-4 opacity-40">
+                      <Folder className="w-8 h-8 text-white" />
+                    </div>
+                    <p className="font-playfair text-xl text-plum/60 mb-2">Armario vacío</p>
+                    <p className="text-sm text-plum/40 mb-6">Empieza añadiendo tus primeras prendas</p>
+                    <button onClick={() => setShowUploadPrenda(true)} className="btn-primary mx-auto">
+                      <Plus className="w-4 h-4" /> Añadir primera prenda
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                    {prendasFiltradas.map(p => (
+                      <PrendaCard key={p.id_prenda} prenda={p} onDelete={() => handleDeletePrenda(p.id_prenda)} onUpdate={u => setPrendas(prendas.map(x => x.id_prenda === u.id_prenda ? u : x))} />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </div>
       </main>
 
-      {/* Modal Look Detalle */}
+      {/* ── MODAL LOOK DETALLE ── */}
       {selectedLook && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelectedLook(null)}>
-          <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" />
-          <div
-            className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedLook(null)}>
+          <div className="absolute inset-0 bg-plum/50 backdrop-blur-sm" />
+          <div className="relative z-10 bg-white rounded-3xl shadow-rose-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-rose-soft/50">
               <div>
-                <h2 className="text-xl font-black text-gray-900">{selectedLook.nombre}</h2>
-                {selectedLook.ocasion && <p className="text-sm text-gray-400 mt-0.5">Ocasión: <span className="font-medium text-gray-600">{selectedLook.ocasion}</span></p>}
+                <h2 className="font-playfair text-xl font-semibold text-plum">{selectedLook.nombre}</h2>
+                {selectedLook.ocasion && <p className="text-sm text-plum/40 mt-0.5">Ocasión: <span className="text-burgundy font-medium">{selectedLook.ocasion}</span></p>}
               </div>
-              <button onClick={() => setSelectedLook(null)} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all">
+              <button onClick={() => setSelectedLook(null)} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            {/* Imagen */}
-            <div className="bg-gray-50 flex items-center justify-center">
-              <img
-                src={lookImages[selectedLook.id_look]}
-                alt={selectedLook.nombre}
-                className="max-h-[60vh] w-auto object-contain"
-              />
+            <div className="bg-rose-light flex justify-center">
+              <img src={lookImages[selectedLook.id_look]} alt={selectedLook.nombre} className="max-h-[55vh] w-auto object-contain" />
             </div>
-
-            {/* Detalles */}
             <div className="p-5 space-y-4">
-              {selectedLook.descripcion && (
-                <p className="text-gray-600 text-sm leading-relaxed">{selectedLook.descripcion}</p>
-              )}
-
-              {/* Prendas usadas */}
+              {selectedLook.descripcion && <p className="text-plum/60 text-sm leading-relaxed">{selectedLook.descripcion}</p>}
               {selectedLook.prendas?.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-black text-gray-800 mb-2 flex items-center gap-1.5">
-                    <Tag className="w-4 h-4 text-indigo-500" /> Prendas usadas en este look
+                  <h3 className="text-sm font-semibold text-plum mb-2 flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-burgundy" /> Prendas del look
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {selectedLook.prendas.map(lp => {
-                      const prenda = prendas.find(p => p.id_prenda === lp.id_prenda);
-                      return prenda ? (
-                        <span key={lp.id_prenda} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1 rounded-full font-medium">
-                          {prenda.nombre}
-                        </span>
-                      ) : null;
+                      const p = prendas.find(x => x.id_prenda === lp.id_prenda);
+                      return p ? <span key={lp.id_prenda} className="badge">{p.nombre}</span> : null;
                     })}
                   </div>
                 </div>
@@ -666,42 +655,22 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Modal Confirmación Eliminar Armario */}
+      {/* ── MODAL ELIMINAR ARMARIO ── */}
       {armarioToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-fade-in" onClick={() => setArmarioToDelete(null)}></div>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative z-10 overflow-hidden animate-scale-in">
-            <div className="p-1 bg-red-600"></div>
-            <div className="p-8">
-              <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600">
-                <Trash2 className="w-8 h-8" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 text-center mb-2">¿Eliminar "{armarioToDelete.nombre}"?</h3>
-              <p className="text-gray-500 text-center text-sm mb-8 leading-relaxed">
-                Esta acción eliminará el armario y todas las prendas guardadas en él. <span className="font-bold">No se puede deshacer.</span>
-              </p>
-              
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={confirmDeleteArmario}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-md"
-                >
-                  Sí, eliminar todo
-                </button>
-                <button 
-                  onClick={() => setArmarioToDelete(null)}
-                  className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-all"
-                >
-                  Cancelar
-                </button>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-plum/40 backdrop-blur-sm" onClick={() => setArmarioToDelete(null)} />
+          <div className="bg-white rounded-3xl shadow-rose-lg w-full max-w-sm relative z-10 p-7 animate-scale-in text-center">
+            <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Trash2 className="w-7 h-7 text-red-400" />
             </div>
-            <button 
-              onClick={() => setArmarioToDelete(null)}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-            >
-              <X className="w-6 h-6" />
-            </button>
+            <h3 className="font-playfair text-xl font-semibold text-plum mb-2">¿Eliminar armario?</h3>
+            <p className="text-sm text-plum/50 mb-6">Se eliminará <strong>"{armarioToDelete.nombre}"</strong> y todas sus prendas. Esta acción no se puede deshacer.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setArmarioToDelete(null)} className="btn-secondary flex-1 py-2.5 text-sm">Cancelar</button>
+              <button onClick={confirmDeleteArmario} className="flex-1 py-2.5 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-colors flex items-center justify-center gap-2 shadow-sm">
+                <Trash2 className="w-4 h-4" /> Eliminar
+              </button>
+            </div>
           </div>
         </div>
       )}

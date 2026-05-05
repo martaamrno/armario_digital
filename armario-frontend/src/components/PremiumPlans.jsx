@@ -1,12 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from './Toast';
-import { Check, ArrowLeft, Star, Loader2, X } from 'lucide-react';
+import { Check, ArrowLeft, Star, Loader2, X, Crown, Sparkles } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-// Reemplazar con la clave pública de Stripe (la que empieza por pk_test_ o similar)
 const stripePromise = loadStripe('pk_test_51TQehRB0YAiOXX9cjIi8xkgu9eSgYwDuGOXNrpUMY1afYH6FnWAeffBfFkjXFmOIzJ9aQ7VghJ1nd825n4t3e8nK007ENfRUzB');
 
 function CheckoutForm({ onCancel }) {
@@ -19,18 +18,13 @@ function CheckoutForm({ onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!stripe || !elements) return;
-
     setLoading(true);
     try {
       const response = await api.createPaymentIntent();
       const { clientSecret } = response;
-
       const result = await stripe.confirmCardPayment(clientSecret, {
-        payment_method: {
-          card: elements.getElement(CardElement),
-        }
+        payment_method: { card: elements.getElement(CardElement) }
       });
-
       if (result.error) {
         addToast(result.error.message, 'error');
       } else {
@@ -38,7 +32,7 @@ function CheckoutForm({ onCancel }) {
         addToast('¡Suscripción Premium activada con éxito!', 'success');
         navigate('/dashboard');
       }
-    } catch (error) {
+    } catch {
       addToast('Error al procesar el pago', 'error');
     } finally {
       setLoading(false);
@@ -46,18 +40,16 @@ function CheckoutForm({ onCancel }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-6">
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Datos de la tarjeta</label>
-        <div className="p-3 border border-gray-300 rounded-lg bg-white shadow-sm">
-          <CardElement options={{style: {base: {fontSize: '16px', color: '#424770', '::placeholder': {color: '#aab7c4'}}}}} />
+    <form onSubmit={handleSubmit} className="p-6 space-y-5">
+      <div>
+        <label className="label-field">Datos de la tarjeta</label>
+        <div className="input-field py-3.5">
+          <CardElement options={{ style: { base: { fontSize: '15px', color: '#26011C', '::placeholder': { color: '#F2ACD3' } } } }} />
         </div>
       </div>
-      <div className="flex justify-end gap-3 mt-6">
-        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
-          Cancelar
-        </button>
-        <button type="submit" disabled={!stripe || loading} className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 disabled:opacity-50">
+      <div className="flex gap-3 justify-end pt-1">
+        <button type="button" onClick={onCancel} className="btn-ghost">Cancelar</button>
+        <button type="submit" disabled={!stripe || loading} className="btn-primary">
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</> : 'Pagar 9.99€'}
         </button>
       </div>
@@ -65,75 +57,146 @@ function CheckoutForm({ onCancel }) {
   );
 }
 
+const NORMAL_FEATURES = [
+  { text: 'Hasta 2 armarios', active: true },
+  { text: 'Máximo 10 prendas por armario', active: true },
+  { text: 'Generación de looks con IA (texto)', active: true },
+  { text: 'Virtual Try-On', active: false },
+  { text: 'Avatar personalizado IA', active: false },
+];
+
+const PREMIUM_FEATURES = [
+  { text: 'Hasta 25 armarios', active: true },
+  { text: 'Máximo 25 prendas por armario', active: true },
+  { text: 'Generación de looks con IA (texto)', active: true },
+  { text: 'Virtual Try-On en tus prendas', active: true },
+  { text: 'Avatar personalizado IA', active: true },
+];
+
 export default function PremiumPlans() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center">
-          <Link to="/dashboard" className="text-gray-500 hover:text-gray-900 flex items-center gap-2 transition-colors text-sm font-medium">
-            <ArrowLeft className="w-4 h-4" /> Volver al Dashboard
+    <div className="min-h-screen bg-rose-light flex flex-col">
+      {/* Decoración */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-rose-soft/30 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-lavender-soft/20 blur-3xl" />
+      </div>
+
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-sm border-b border-rose-soft/50 sticky top-0 z-20">
+        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center">
+          <Link to="/dashboard" className="btn-ghost text-sm py-2 px-3">
+            <ArrowLeft className="w-4 h-4" /> Volver
           </Link>
         </div>
       </header>
 
-      <main className="flex-1 max-w-4xl mx-auto px-4 py-16 w-full">
+      <main className="flex-1 max-w-4xl mx-auto px-4 py-14 w-full relative">
+        {/* Hero */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Mejora tu Armario Digital</h1>
-          <p className="mt-4 text-xl text-gray-500">Desbloquea el poder total de la IA y organiza sin límites.</p>
+          <div className="inline-flex items-center gap-2 mb-5">
+            <div className="w-10 h-10 rounded-2xl gradient-rose flex items-center justify-center shadow-burgundy">
+              <span className="text-white text-lg">✦</span>
+            </div>
+            <span className="font-playfair text-2xl font-semibold text-plum">Armario Digital</span>
+          </div>
+          <h1 className="font-playfair text-4xl font-semibold text-plum mb-3">Elige tu plan</h1>
+          <p className="text-plum/50 text-base max-w-md mx-auto">Desbloquea el poder total de la IA y organiza tu estilo sin límites.</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 flex flex-col">
-            <h3 className="text-2xl font-bold text-gray-900">Normal</h3>
-            <p className="text-gray-500 mt-2">Para organizar lo esencial.</p>
-            <div className="my-6">
-              <span className="text-4xl font-extrabold text-gray-900">Gratis</span>
+        <div className="grid md:grid-cols-2 gap-6">
+          {/* Plan Normal */}
+          <div className="card p-8 flex flex-col">
+            <div className="mb-6">
+              <p className="text-xs font-semibold text-plum/30 uppercase tracking-widest mb-2">Plan actual</p>
+              <h3 className="font-playfair text-3xl font-semibold text-plum">Normal</h3>
+              <p className="text-plum/40 text-sm mt-1">Para organizar lo esencial.</p>
             </div>
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex gap-3 text-gray-600"><Check className="w-5 h-5 text-green-500 shrink-0" /> Hasta 2 armarios</li>
-              <li className="flex gap-3 text-gray-600"><Check className="w-5 h-5 text-green-500 shrink-0" /> Máximo 10 prendas por armario</li>
-              <li className="flex gap-3 text-gray-600"><Check className="w-5 h-5 text-green-500 shrink-0" /> Generación de looks con IA (texto)</li>
-              <li className="flex gap-3 text-gray-400"><Check className="w-5 h-5 text-gray-300 shrink-0" /> Sin Virtual Try-On</li>
+            <div className="mb-8">
+              <span className="font-playfair text-4xl font-semibold text-plum">Gratis</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-1">
+              {NORMAL_FEATURES.map((f, i) => (
+                <li key={i} className={`flex items-center gap-3 text-sm ${f.active ? 'text-plum/70' : 'text-plum/25'}`}>
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${f.active ? 'bg-rose-soft' : 'bg-rose-light'}`}>
+                    <Check className={`w-3 h-3 ${f.active ? 'text-burgundy' : 'text-plum/15'}`} />
+                  </span>
+                  {f.text}
+                </li>
+              ))}
             </ul>
-            <button disabled className="w-full bg-gray-100 text-gray-500 font-semibold py-3 rounded-xl">Plan Actual</button>
+            <button disabled className="btn-secondary w-full opacity-60 cursor-not-allowed">Plan actual</button>
           </div>
 
-          <div className="bg-gradient-to-b from-indigo-50 to-white rounded-2xl shadow-xl border-2 border-indigo-500 p-8 flex flex-col relative transform md:-translate-y-4">
-            <div className="absolute top-0 right-8 transform -translate-y-1/2">
-              <span className="bg-indigo-500 text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full flex items-center gap-1">
+          {/* Plan Premium */}
+          <div className="relative bg-white rounded-3xl shadow-rose-lg border-2 border-rose-mid/40 p-8 flex flex-col md:-translate-y-4 overflow-hidden">
+            {/* Badge recomendado */}
+            <div className="absolute top-0 right-8 -translate-y-1/2">
+              <span className="bg-burgundy text-white text-[10px] font-bold uppercase tracking-wider py-1.5 px-3 rounded-full flex items-center gap-1 shadow-burgundy">
                 <Star className="w-3 h-3" fill="currentColor" /> Recomendado
               </span>
             </div>
-            <h3 className="text-2xl font-bold text-indigo-900">Premium</h3>
-            <p className="text-indigo-600 mt-2">Capacidad profesional para amantes de la moda.</p>
-            <div className="my-6">
-              <span className="text-4xl font-extrabold text-gray-900">9.99€</span>
-              <span className="text-gray-500">/mes</span>
+
+            {/* Decoración interna */}
+            <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-rose-soft/20 blur-2xl -translate-y-10 translate-x-10 pointer-events-none" />
+
+            <div className="mb-6 relative">
+              <p className="text-xs font-semibold text-rose-mid uppercase tracking-widest mb-2">Desbloquea todo</p>
+              <h3 className="font-playfair text-3xl font-semibold text-plum">Premium</h3>
+              <p className="text-plum/40 text-sm mt-1">Capacidad profesional para amantes de la moda.</p>
             </div>
-            <ul className="space-y-4 mb-8 flex-1">
-              <li className="flex gap-3 text-gray-700"><Check className="w-5 h-5 text-indigo-500 shrink-0" /> Hasta 25 armarios</li>
-              <li className="flex gap-3 text-gray-700"><Check className="w-5 h-5 text-indigo-500 shrink-0" /> Máximo 25 prendas por armario</li>
-              <li className="flex gap-3 text-gray-700"><Check className="w-5 h-5 text-indigo-500 shrink-0" /> Virtual try-on en tus prendas</li>
-              <li className="flex gap-3 text-gray-700"><Check className="w-5 h-5 text-indigo-500 shrink-0" /> Avatar personalizado por IA</li>
+            <div className="mb-8">
+              <span className="font-playfair text-4xl font-semibold text-plum">9.99€</span>
+              <span className="text-plum/40 text-sm">/mes</span>
+            </div>
+            <ul className="space-y-3 mb-8 flex-1">
+              {PREMIUM_FEATURES.map((f, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm text-plum/70">
+                  <span className="w-5 h-5 rounded-full bg-rose-soft flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-burgundy" />
+                  </span>
+                  {f.text}
+                </li>
+              ))}
             </ul>
-            <button 
-              onClick={() => setShowPaymentModal(true)} 
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex justify-center items-center gap-2"
-            >
-              Actualizar a Premium
+            <button onClick={() => setShowPaymentModal(true)} className="btn-primary w-full">
+              <Crown className="w-4 h-4" /> Actualizar a Premium
             </button>
           </div>
         </div>
+
+        {/* Features highlight */}
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[
+            { icon: <Sparkles className="w-5 h-5 text-rose-mid" />, title: 'Virtual Try-On', desc: 'Pruébate outfits generados por IA usando tu propia foto.' },
+            { icon: <Crown className="w-5 h-5 text-rose-mid" />, title: 'Avatar IA', desc: 'Crea una versión digital personalizada de ti misma.' },
+            { icon: <Check className="w-5 h-5 text-rose-mid" />, title: 'Sin límites', desc: 'Hasta 25 armarios y 25 prendas por armario.' },
+          ].map((item, i) => (
+            <div key={i} className="card p-5 text-center">
+              <div className="w-10 h-10 bg-rose-light rounded-2xl flex items-center justify-center mx-auto mb-3">
+                {item.icon}
+              </div>
+              <p className="font-semibold text-plum text-sm mb-1">{item.title}</p>
+              <p className="text-xs text-plum/40 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
       </main>
 
+      {/* Modal pago */}
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h3 className="font-bold text-gray-900">Pago Seguro con Stripe</h3>
-              <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+        <div className="fixed inset-0 bg-plum/40 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-rose-lg w-full max-w-md overflow-hidden animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-rose-soft/50">
+              <div>
+                <h3 className="font-playfair text-xl font-semibold text-plum">Pago seguro</h3>
+                <p className="text-xs text-plum/40 mt-0.5">Procesado por Stripe · 9.99€/mes</p>
+              </div>
+              <button onClick={() => setShowPaymentModal(false)} className="p-2 text-plum/30 hover:text-plum hover:bg-rose-light rounded-xl transition-colors">
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <Elements stripe={stripePromise}>
               <CheckoutForm onCancel={() => setShowPaymentModal(false)} />
