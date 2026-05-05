@@ -148,6 +148,7 @@ class LookGenerarRequest(BaseModel):
     prompt: str
     id_armario: int
     ocasion: Optional[str] = None
+    id_prendas: Optional[list[int]] = None  # None = usar todas las del armario
 
 
 class LookPrendaOut(BaseModel):

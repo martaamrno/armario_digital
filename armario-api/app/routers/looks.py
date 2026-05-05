@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.ai_service import generate_look, virtual_tryon
 from app.auth import get_current_user
-from app.blob_storage import download_blob_bytes, upload_prenda_image
+from app.blob_storage import download_blob_bytes, upload_prenda_image, get_signed_url
 from app.database import get_db
 from app.models import Armario, Look, LookPrenda, Prenda, Usuario
 from app.schemas import (
@@ -34,6 +34,7 @@ def _task_generar_look(
     prompt: str,
     id_armario: int,
     id_usuario: int,
+    id_prendas_filtro: list[int] | None = None,
 ):
     import app.database as _app_db
 
@@ -43,8 +44,11 @@ def _task_generar_look(
         look.estado = "generando"
         db.commit()
 
-        # 1. Cargar prendas del armario
-        prendas = db.query(Prenda).filter(Prenda.id_armario == id_armario).all()
+        # 1. Cargar prendas del armario (o solo las seleccionadas)
+        q = db.query(Prenda).filter(Prenda.id_armario == id_armario)
+        if id_prendas_filtro:
+            q = q.filter(Prenda.id_prenda.in_(id_prendas_filtro))
+        prendas = q.all()
         prendas_payload = [
             {
                 "id_prenda": p.id_prenda,
@@ -182,6 +186,7 @@ def generar_look_ia(
         body.prompt,
         body.id_armario,
         usuario.id_usuario,
+        body.id_prendas,
     )
 
     return LookGenerarResponse(
@@ -189,6 +194,16 @@ def generar_look_ia(
         estado="pendiente",
         mensaje="El look se está generando. Consulta el estado en GET /looks/{id_look}/estado",
     )
+
+
+@router.get("/{id_look}/url-imagen")
+def url_imagen_look(id_look: int, db: Session = Depends(get_db), usuario: Usuario = Depends(get_current_user)):
+    look = db.get(Look, id_look)
+    if not look or look.id_usuario != usuario.id_usuario:
+        raise HTTPException(status_code=404, detail="Look no encontrado")
+    if not look.imagen_generada_url:
+        raise HTTPException(status_code=404, detail="Este look no tiene imagen generada")
+    return {"url": get_signed_url(look.imagen_generada_url)}
 
 
 @router.get("/{id_look}/estado", response_model=LookEstadoOut)

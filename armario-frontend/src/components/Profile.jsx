@@ -27,6 +27,7 @@ export default function Profile() {
   const [generandoAvatar, setGenerandoAvatar] = useState(false);
   const [avatarStatusText, setAvatarStatusText] = useState('');
   const [avatarPrompt, setAvatarPrompt] = useState('');
+  const [aplicandoAvatar, setAplicandoAvatar] = useState(false);
 
   // Cambio de contraseña
   const [passwords, setPasswords] = useState({ actual: '', nueva: '', confirmacion: '' });
@@ -176,6 +177,20 @@ export default function Profile() {
       addToast('Error al iniciar la generación', 'error');
       setGenerandoAvatar(false);
       setAvatarStatusText('');
+    }
+  };
+
+  const handleUsarAvatarComoPerfil = async () => {
+    setAplicandoAvatar(true);
+    try {
+      await api.usarAvatarComoPerfil();
+      const pData = await api.getFotoPerfilUrl();
+      if (pData) setFotoPerfilUrl(pData.url);
+      addToast('Avatar aplicado como foto de perfil', 'success');
+    } catch (err) {
+      addToast('Error al aplicar el avatar', 'error');
+    } finally {
+      setAplicandoAvatar(false);
     }
   };
 
@@ -446,21 +461,32 @@ export default function Profile() {
               </div>
 
               <div className="w-full space-y-3">
-                <textarea 
+                <textarea
                   rows={3}
-                  placeholder="Describe cómo quieres tu avatar (ej: pelo largo rubio, estilo anime, ropa deportiva...)" 
+                  placeholder="Describe cómo quieres tu avatar (ej: pelo largo rubio, estilo anime, ropa deportiva...)"
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none transition-all resize-none bg-gray-50"
                   value={avatarPrompt}
                   onChange={(e) => setAvatarPrompt(e.target.value)}
                   disabled={generandoAvatar || !isPremium}
                 />
-                <button 
-                  onClick={handleGenerarAvatar} 
+                <button
+                  onClick={handleGenerarAvatar}
                   disabled={generandoAvatar || !avatarPrompt || !isPremium}
                   className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold py-3 rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {generandoAvatar ? <><Loader2 className="w-4 h-4 animate-spin" /> {avatarStatusText}</> : <><Sparkles className="w-4 h-4" /> Generar Avatar IA</>}
                 </button>
+                {avatarUrl && !generandoAvatar && (
+                  <button
+                    onClick={handleUsarAvatarComoPerfil}
+                    disabled={aplicandoAvatar}
+                    className="w-full border-2 border-purple-300 text-purple-700 hover:bg-purple-50 font-bold py-2.5 rounded-xl text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {aplicandoAvatar
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Aplicando...</>
+                      : <><Check className="w-4 h-4" /> Usar como foto de perfil</>}
+                  </button>
+                )}
               </div>
             </div>
           </div>

@@ -25,5 +25,8 @@ class Settings(BaseSettings):
     azure_image_api_key: str
     azure_image_deployment: str = "gpt-image-2-1"
 
+    # Stripe
+    stripe_api_key: str
+
 
 settings = Settings()

@@ -223,3 +223,21 @@ def url_avatar(usuario: Usuario = Depends(get_current_user)):
     if not usuario.avatar_url:
         raise HTTPException(status_code=404, detail="No tienes avatar generado")
     return {"url": get_signed_url(usuario.avatar_url)}
+
+
+@router.post("/me/avatar-como-perfil", response_model=UsuarioOut)
+def avatar_como_perfil(
+    db: Session = Depends(get_db),
+    usuario: Usuario = Depends(get_current_user),
+):
+    if not usuario.avatar_url:
+        raise HTTPException(status_code=404, detail="No tienes avatar generado")
+    if usuario.foto_perfil_url and usuario.foto_perfil_url != usuario.avatar_url:
+        try:
+            delete_blob(usuario.foto_perfil_url)
+        except Exception:
+            pass
+    usuario.foto_perfil_url = usuario.avatar_url
+    db.commit()
+    db.refresh(usuario)
+    return usuario

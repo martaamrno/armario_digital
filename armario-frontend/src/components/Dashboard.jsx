@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { api } from '../api';
 import { useToast } from './Toast';
 import OutfitGenerator from './OutfitGenerator';
 import PrendaCard from './PrendaCard';
-import { 
-  LogOut, Plus, Upload, Folder, Search, Loader2, 
-  User, Crown, Filter, Trash2, AlertTriangle, X 
+import {
+  LogOut, Plus, Upload, Folder, Search, Loader2,
+  User, Crown, Filter, Trash2, AlertTriangle, X,
+  Sparkles, ImageIcon, ZoomIn, Tag
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -36,12 +37,31 @@ export default function Dashboard() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({ temporada: '', id_categoria: '', estilo: '', color_principal: '' });
 
+  // Looks generados
+  const [looks, setLooks] = useState([]);
+  const [lookImages, setLookImages] = useState({});
+  const [selectedLook, setSelectedLook] = useState(null);
+
   // Modales
   const [armarioToDelete, setArmarioToDelete] = useState(null);
   
   const navigate = useNavigate();
   const location = useLocation();
   const { addToast } = useToast();
+
+  const fetchLooks = useCallback(async () => {
+    try {
+      const data = await api.getLooks();
+      setLooks(data);
+      // Cargar imágenes de looks listos
+      data.filter(l => l.estado === 'listo' && l.imagen_generada_url).forEach(async (look) => {
+        try {
+          const res = await api.getOutfitImageUrl(look.id_look);
+          if (res?.url) setLookImages(prev => ({ ...prev, [look.id_look]: res.url }));
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
@@ -92,12 +112,15 @@ export default function Dashboard() {
       setUser(userData);
       setArmarios(armariosData);
       setCategorias(catsData);
-      
+
       if (catsData.length > 0) setSelectedCategoria(catsData[0].id_categoria);
-      
+
       if (armariosData.length > 0 && !selectedArmario) {
         setSelectedArmario(armariosData[0]);
       }
+
+      // Cargar looks
+      fetchLooks();
 
       // Cargar foto perfil
       if (userData.foto_perfil_url) {
@@ -198,6 +221,18 @@ export default function Dashboard() {
       addToast('Prenda eliminada', 'success');
     } catch (err) {
       addToast('Error al eliminar prenda', 'error');
+    }
+  };
+
+  const handleDeleteLook = async (id_look) => {
+    if (!window.confirm('¿Eliminar este look?')) return;
+    try {
+      await api.deleteLook(id_look);
+      setLooks(looks.filter(l => l.id_look !== id_look));
+      setLookImages(prev => { const n = { ...prev }; delete n[id_look]; return n; });
+      addToast('Look eliminado', 'success');
+    } catch (_) {
+      addToast('Error al eliminar look', 'error');
     }
   };
 
@@ -332,7 +367,7 @@ export default function Dashboard() {
           
           {selectedArmario && (
             isPremium ? (
-              <OutfitGenerator idArmario={selectedArmario.id_armario} hasFotoCuerpo={!!user?.foto_cuerpo_url} isPremium={isPremium} />
+              <OutfitGenerator idArmario={selectedArmario.id_armario} prendas={prendas} hasFotoCuerpo={!!user?.foto_cuerpo_url} isPremium={isPremium} onLookGenerated={fetchLooks} />
             ) : (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center space-y-4">
                 <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto">
@@ -475,6 +510,77 @@ export default function Dashboard() {
                 </div>
               )}
 
+              {/* ── Mis Looks ── */}
+              {looks.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="text-lg font-black text-gray-900 mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-500" /> Mis Looks Generados
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {looks.map(look => {
+                      const img = lookImages[look.id_look];
+                      const isGenerating = look.estado === 'generando' || look.estado === 'pendiente';
+                      const isError = look.estado === 'error';
+                      const isClickable = !!img;
+                      return (
+                        <div
+                          key={look.id_look}
+                          className={`border border-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow group ${isClickable ? 'cursor-pointer' : ''}`}
+                          onClick={() => isClickable && setSelectedLook(look)}
+                        >
+                          <div className="relative bg-gray-50 h-48 flex items-center justify-center">
+                            {img ? (
+                              <>
+                                <img src={img} alt={look.nombre} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300" />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                  <ZoomIn className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                                </div>
+                              </>
+                            ) : isGenerating ? (
+                              <div className="flex flex-col items-center gap-2 text-purple-600">
+                                <Loader2 className="w-8 h-8 animate-spin" />
+                                <span className="text-xs font-medium">Generando...</span>
+                              </div>
+                            ) : isError ? (
+                              <div className="flex flex-col items-center gap-2 text-red-400">
+                                <AlertTriangle className="w-8 h-8" />
+                                <span className="text-xs font-medium">Error al generar</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col items-center gap-2 text-gray-300">
+                                <ImageIcon className="w-8 h-8" />
+                                <span className="text-xs text-gray-400">Sin imagen</span>
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleDeleteLook(look.id_look); }}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-white/90 rounded-full text-gray-400 hover:text-red-500 transition-all shadow-sm z-10"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <div className="p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="font-bold text-sm text-gray-800 truncate">{look.nombre}</p>
+                              <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                look.estado === 'listo' ? 'bg-green-100 text-green-700' :
+                                isGenerating ? 'bg-purple-100 text-purple-700' :
+                                isError ? 'bg-red-100 text-red-600' : 'bg-gray-100 text-gray-500'
+                              }`}>
+                                {look.estado === 'listo' ? 'Listo' : isGenerating ? 'Generando' : isError ? 'Error' : look.estado}
+                              </span>
+                            </div>
+                            {look.descripcion && <p className="text-xs text-gray-400 mt-1 line-clamp-2">{look.descripcion}</p>}
+                            {isError && look.error_mensaje && <p className="text-xs text-red-400 mt-1 line-clamp-2">{look.error_mensaje}</p>}
+                            {isClickable && <p className="text-xs text-indigo-500 mt-1 font-medium">Haz clic para ver en detalle</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {loadingPrendas ? (
                 <div className="py-24 flex flex-col items-center gap-4">
                   <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
@@ -502,6 +608,63 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* Modal Look Detalle */}
+      {selectedLook && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelectedLook(null)}>
+          <div className="absolute inset-0 bg-gray-900/70 backdrop-blur-sm" />
+          <div
+            className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h2 className="text-xl font-black text-gray-900">{selectedLook.nombre}</h2>
+                {selectedLook.ocasion && <p className="text-sm text-gray-400 mt-0.5">Ocasión: <span className="font-medium text-gray-600">{selectedLook.ocasion}</span></p>}
+              </div>
+              <button onClick={() => setSelectedLook(null)} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-all">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Imagen */}
+            <div className="bg-gray-50 flex items-center justify-center">
+              <img
+                src={lookImages[selectedLook.id_look]}
+                alt={selectedLook.nombre}
+                className="max-h-[60vh] w-auto object-contain"
+              />
+            </div>
+
+            {/* Detalles */}
+            <div className="p-5 space-y-4">
+              {selectedLook.descripcion && (
+                <p className="text-gray-600 text-sm leading-relaxed">{selectedLook.descripcion}</p>
+              )}
+
+              {/* Prendas usadas */}
+              {selectedLook.prendas?.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-black text-gray-800 mb-2 flex items-center gap-1.5">
+                    <Tag className="w-4 h-4 text-indigo-500" /> Prendas usadas en este look
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedLook.prendas.map(lp => {
+                      const prenda = prendas.find(p => p.id_prenda === lp.id_prenda);
+                      return prenda ? (
+                        <span key={lp.id_prenda} className="text-xs bg-indigo-50 text-indigo-700 border border-indigo-100 px-3 py-1 rounded-full font-medium">
+                          {prenda.nombre}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Confirmación Eliminar Armario */}
       {armarioToDelete && (

@@ -210,7 +210,10 @@ export const api = {
     const response = await fetch(`${API_URL}/looks/generar`, {
       method: 'POST',
       headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({
+        ...data,
+        id_prendas: data.id_prendas?.length ? data.id_prendas : null
+      })
     });
     if (!response.ok) throw new Error('Error al generar outfit');
     return response.json();
@@ -257,5 +260,30 @@ export const api = {
     });
     if (!response.ok) throw new Error('Error al cancelar suscripción');
     return response.json();
+  },
+
+  usarAvatarComoPerfil: async () => {
+    const response = await fetch(`${API_URL}/auth/me/avatar-como-perfil`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) throw new Error('Error al aplicar avatar como foto de perfil');
+    return response.json();
+  },
+
+  getLooks: async () => {
+    const response = await fetch(`${API_URL}/looks`, {
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) throw new Error('Error al obtener looks');
+    return response.json();
+  },
+
+  deleteLook: async (id) => {
+    const response = await fetch(`${API_URL}/looks/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+    if (!response.ok) throw new Error('Error al eliminar look');
   }
 };
